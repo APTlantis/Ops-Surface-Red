@@ -1,0 +1,95 @@
+schema = "cityhall.project-readmap"
+version = "1.0"
+
+[project]
+name = "Ops-Control Surface"
+root = "D:\\DRS\\Ops Control Surface"
+generated_by = "Red implementation reboot"
+last_filled = "2026-09-05"
+
+[budget]
+analyzer_file_budget = 25
+reserved_mandatory = 6
+remaining_exploratory = 19
+
+[[mandatory]]
+path = "Ops Control Surface.manifest.toml"
+rank = 1
+status = "present"
+reason = "Canonical machine-readable project metadata and verification posture"
+
+[[mandatory]]
+path = "Project-Proposal.md"
+rank = 2
+status = "present"
+reason = "Authoritative scope, boundaries, success criteria, and milestones"
+
+[[mandatory]]
+path = "AGENTS.md"
+rank = 3
+status = "present"
+reason = "Project-local modification and verification rules"
+
+[[mandatory]]
+path = "Project-README.md"
+rank = 4
+status = "present"
+reason = "Current governed state and operator context"
+
+[[mandatory]]
+path = "main.red"
+rank = 5
+status = "present"
+reason = "Active Red/View application entry point"
+
+[[mandatory]]
+path = "src\\ops-control.red"
+rank = 6
+status = "present"
+reason = "Active data model, persistence, operations, and native interface"
+
+[[important]]
+path = "data\\ops-state.red"
+rank = 7
+status = "present"
+reason = "User-owned local system of record; preserve across source changes"
+
+[[important]]
+path = "docs\\RED-ARCHITECTURE.md"
+rank = 8
+status = "present"
+reason = "Architecture decisions, data migration gate, and operations contract"
+
+[[important]]
+path = "README.md"
+rank = 9
+status = "present"
+reason = "Run, build, capability, structure, and safety overview"
+
+[[important]]
+path = "run-red.cmd"
+rank = 10
+status = "present"
+reason = "Windows interpreted-launch entry point"
+
+[[important]]
+path = "build-red.cmd"
+rank = 11
+status = "present"
+reason = "Windows compiled-build entry point"
+
+[[excluded]]
+path = "legacy\\tauri-scaffold"
+status = "present"
+reason = "Recoverable historical implementation; not authoritative and not part of the active build"
+
+[[excluded]]
+path = "assets\\project-icons"
+status = "present"
+reason = "Retained binary artwork; inspect only when working on project icon integration"
+
+[[excluded]]
+path = "dist"
+status = "generated-if-built"
+reason = "Compiled output is not source or governed evidence by itself"
+

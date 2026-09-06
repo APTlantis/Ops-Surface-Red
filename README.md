@@ -1,4 +1,4 @@
-# Aptlantis Ops
+# Ops Surface Red
 
 Aptlantis Ops is a native Red/View desktop control surface for the projects, governance documents, operators, stock material, artifacts, and bounded AI workflows that currently matter across Aptlantis.
 

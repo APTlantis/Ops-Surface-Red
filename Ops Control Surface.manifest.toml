@@ -1,0 +1,163 @@
+[manifest]
+schema = "APTlantis Entity Manifest"
+schema_version = "2.4"
+manifest_type = "project"
+canonical_name = "Ops Control Surface.manifest.toml"
+last_updated = "2026-09-05"
+maintainer = "Herb"
+
+[entity]
+id = "ops-control-surface"
+title = "Ops Control Surface"
+kind = "project"
+class = "project"
+status = "active-development"
+description = "Local-first native Red/View operations surface for typed Aptlantis objects, relationships, artifacts, and bounded workflows."
+tags = [
+    "desktop-application",
+    "red-lang",
+    "red-view",
+    "operations",
+    "local-first",
+    "aptlantis",
+]
+
+[project]
+type = "desktop-application"
+portfolio_class = "project"
+stage = "implementation-reboot"
+version = "0.1.0"
+product_name = "Aptlantis Ops"
+technical_name = "ops-control-surface"
+
+[governance]
+primary_standard = "DRS"
+primary_standard_path = "D:\\.city_hall\\DRS\\README.md"
+additional_standards = ["WGS", "PPS"]
+additional_standard_paths = [
+    "D:\\.city_hall\\WGS\\README.md",
+    "D:\\.city_hall\\PPS\\README.md",
+]
+inherits_from = "..\\DRS.manifest.toml"
+
+[lifecycle]
+state = "active-development"
+last_reviewed = "2026-09-05"
+maintainer = "Herb"
+
+[paths]
+root = "D:\\DRS\\Ops Control Surface"
+entry_point = "main.red"
+state_file = "data\\ops-state.red"
+legacy_scaffold = "legacy\\tauri-scaffold"
+
+[documentation]
+project_proposal = "Project-Proposal.md"
+project_readme = "Project-README.md"
+readme = "README.md"
+agent_instructions = "AGENTS.md"
+architecture = "docs\\RED-ARCHITECTURE.md"
+
+[relationships]
+parent = "D:\\DRS"
+child_projects = []
+depends_on_projects = []
+related_projects = [
+    "D:\\DRS\\Chat Archive",
+    "D:\\DRS\\File Cabinet",
+    "D:\\DRS\\Aptlantis Console",
+]
+
+[architecture]
+language = "Red"
+ui = "Red/View"
+persistence = "Version-zero transparent Red block state file"
+system_of_record = "data\\ops-state.red"
+board_role = "Projection of operational attention"
+external_integration = "Windows shell path opening; bounded operators deferred"
+
+[state]
+stability = "source-complete-unverified"
+active_development = true
+known_gaps = [
+    "The Red/View shell has not been launched because the current workspace does not provide a Windows Red toolchain.",
+    "The compiled Windows executable has not been produced or smoke-tested.",
+    "The v0.1 common record must migrate to versioned named typed payloads before schema breadth expands.",
+    "Relationship editing, managed artifact intake, and bounded operator execution remain roadmap work.",
+]
+
+[verification]
+level = "static-source-validation-only"
+evidence = "The Tauri scaffold was removed from the active source tree and retained under legacy; Red source, seed data, Windows launch/build scripts, and rewritten governance documents were added on 2026-09-05."
+reviewed = "2026-09-05"
+source_verified = true
+runtime_verified = false
+build_verified = false
+tests_verified = false
+artifact_verified = false
+release_verified = false
+
+[verification.commands]
+interpreted_launch = "red.exe main.red"
+launcher = "run-red.cmd"
+compiled_build = "build-red.cmd"
+expected_binary = "dist\\Aptlantis-Ops.exe"
+
+[features.native_shell]
+status = "implemented-in-source-unverified-at-runtime"
+capabilities = [
+    "board-switching",
+    "lane-navigation",
+    "search",
+    "create-record",
+    "edit-common-fields",
+    "pin-record",
+    "move-between-boards",
+    "delete-record-and-relationships",
+    "local-persistence",
+    "open-recorded-path",
+]
+
+[features.relationships]
+status = "stored-and-cleaned-on-delete"
+model = "Independent relationship blocks"
+editor = "deferred-to-v0.2"
+
+[features.project_artifacts]
+status = "design-retained-implementation-deferred"
+delete_policy = "Deleting an artifact record must never delete a referenced or managed file."
+
+[release]
+version = "0.1.0"
+status = "not-release-verified"
+release_claim = false
+distribution = "undecided"
+windows_posture = "Public Windows GUI release defaults to Microsoft Store MSIX unless a documented exception is approved."
+
+[migration]
+source_status = "clean-red-reboot"
+rebooted_on = "2026-09-05"
+superseded_stack = ["React", "TypeScript", "Vite", "Tauri", "Rust", "SQLite"]
+legacy_location = "legacy\\tauri-scaffold"
+legacy_authority = false
+preserved_assets = "assets\\project-icons"
+notes = "The supplied archive did not contain the documented src-tauri backend. Historical Tauri/Rust verification is not reproducible from this package and does not apply to the Red implementation."
+
+[agent]
+read_first = [
+    "AGENTS.md",
+    "Ops Control Surface.manifest.toml",
+    "Project-Proposal.md",
+    "Project-README.md",
+]
+authoritative_docs = [
+    "Ops Control Surface.manifest.toml",
+    "Project-Proposal.md",
+    "Project-README.md",
+    "AGENTS.md",
+    "README.md",
+    "docs\\RED-ARCHITECTURE.md",
+]
+safe_to_modify = true
+notes = "Keep the active implementation Red-native. Preserve user state and maintain the separation between stored objects, relationships, board projections, and external operations."
+

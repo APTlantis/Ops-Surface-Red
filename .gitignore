@@ -1,0 +1,6 @@
+dist/
+*.exe
+*.bak
+data/*.tmp
+
+/.idea/
