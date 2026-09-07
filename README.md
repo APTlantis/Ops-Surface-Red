@@ -37,17 +37,27 @@ The expected output is `dist\Aptlantis-Ops.exe`.
 - Switch between primary and secondary boards.
 - Select operational lanes.
 - Search the selected lane by name, summary, or tags.
-- Create a new record in the current lane.
+- Create a new record in the current lane with a lane-appropriate object type.
 - Inspect and edit common object fields.
+- Edit a compact type-specific payload block for each object type.
 - Pin an object as surfaced attention.
 - Move a record to the other board.
 - Open a recorded path with Windows Explorer.
 - Delete a record and its relationships without deleting filesystem content.
 - Persist objects and relationships in `data/ops-state.red`.
 
-## Object types
+Relationship creation is guided by the canonical vocabulary: `governs`, `implements`, `contains`, `depends-on`, `produces`, `produced-by`, `consumes`, `used-by`, `operates-on`, `executed-by`, `invokes`, `part-of`, `references`, `supersedes`, `derived-from`, and `validates`.
 
-The retained vocabulary is `project`, `powershell-operator`, `city-hall`, `stock`, `artifact`, and `ai-workflow`. The v0.1 shell edits a useful common record. Type-specific payload editors are the next model milestone.
+## Object Types
+
+The retained vocabulary is `project`, `powershell-operator`, `city-hall`, `stock`, `artifact`, and `ai-workflow`. Every object has the same shared envelope and a compact typed payload block:
+
+- `project`: work being undertaken.
+- `powershell-operator`: bounded executable capability.
+- `city-hall`: governing authority.
+- `stock`: reusable known material.
+- `artifact`: durable output or evidence.
+- `ai-workflow`: defined AI-assisted operational process.
 
 ## Project structure
 
@@ -69,4 +79,3 @@ Ops Control Surface.manifest.toml canonical machine-readable project metadata
 - Record deletion never deletes a filesystem target.
 - External mutation requires a future operation contract, preview, and confirmation.
 - Runtime and release claims require Windows-host evidence.
-

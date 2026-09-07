@@ -2,8 +2,8 @@
 schema = "APTlantis Entity Manifest"
 schema_version = "2.4"
 manifest_type = "project"
-canonical_name = "Ops Control Surface.manifest.toml"
-last_updated = "2026-09-05"
+canonical_name = "Ops-Surface-Red.toml"
+last_updated = "2026-09-07"
 maintainer = "Herb"
 
 [entity]
@@ -46,7 +46,7 @@ last_reviewed = "2026-09-05"
 maintainer = "Herb"
 
 [paths]
-root = "D:\\DRS\\Ops Control Surface"
+root = "D:\\DRS\\Ops-Surface-Red"
 entry_point = "main.red"
 state_file = "data\\ops-state.red"
 legacy_scaffold = "legacy\\tauri-scaffold"
@@ -75,15 +75,15 @@ persistence = "Version-zero transparent Red block state file"
 system_of_record = "data\\ops-state.red"
 board_role = "Projection of operational attention"
 external_integration = "Windows shell path opening; bounded operators deferred"
+typed_payloads = "Field 14 Red property block, normalized from older 13-field records"
 
 [state]
 stability = "source-complete-unverified"
 active_development = true
 known_gaps = [
-    "The Red/View shell has not been launched because the current workspace does not provide a Windows Red toolchain.",
-    "The compiled Windows executable has not been produced or smoke-tested.",
-    "The v0.1 common record must migrate to versioned named typed payloads before schema breadth expands.",
-    "Relationship editing, managed artifact intake, and bounded operator execution remain roadmap work.",
+    "The current session has not found red.exe or redc.exe, so fresh runtime and compiled-build verification remain pending.",
+    "The typed payload editor uses editable Red property blocks; stricter payload validation and a schema/version header remain future hardening.",
+    "Managed artifact intake and bounded operator execution remain roadmap work.",
 ]
 
 [verification]
@@ -111,6 +111,7 @@ capabilities = [
     "search",
     "create-record",
     "edit-common-fields",
+    "edit-type-specific-payload-block",
     "pin-record",
     "move-between-boards",
     "delete-record-and-relationships",
@@ -119,9 +120,9 @@ capabilities = [
 ]
 
 [features.relationships]
-status = "stored-and-cleaned-on-delete"
+status = "stored-edited-and-cleaned-on-delete"
 model = "Independent relationship blocks"
-editor = "deferred-to-v0.2"
+editor = "implemented in native inspector"
 
 [features.project_artifacts]
 status = "design-retained-implementation-deferred"
@@ -160,4 +161,3 @@ authoritative_docs = [
 ]
 safe_to_modify = true
 notes = "Keep the active implementation Red-native. Preserve user state and maintain the separation between stored objects, relationships, board projections, and external operations."
-

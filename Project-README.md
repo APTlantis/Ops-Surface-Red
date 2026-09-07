@@ -28,6 +28,7 @@ The first native shell contains source-level implementations for:
 - independent relationship records
 - object search and lane filtering
 - create, inspect, edit, pin, move, and delete-record flows
+- compact type-specific payload editing for the six retained object types
 - transparent local persistence
 - Windows path launching
 
@@ -35,7 +36,7 @@ Runtime verification is pending because this workspace does not contain the Wind
 
 ## Persistence
 
-`data/ops-state.red` is the v0.1 system of record. It contains scalar values and nested Red blocks and is loaded as data rather than executed as code.
+`data/ops-state.red` is the v0.1 system of record. It contains scalar values and nested Red blocks and is loaded as data rather than executed as code. Object records use a shared envelope plus a type-specific payload block; older shared-envelope-only records are normalized in memory when loaded.
 
 Record deletion removes the operational record and its relationship records. It never deletes a referenced filesystem target. Preserve the data file across source updates.
 
@@ -53,4 +54,3 @@ On the Windows host:
 4. Close and reopen the app and confirm state persistence.
 5. Run `build-red.cmd` and launch `dist\Aptlantis-Ops.exe`.
 6. Record failures without promoting static inspection into runtime evidence.
-

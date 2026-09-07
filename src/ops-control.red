@@ -20,7 +20,10 @@ state-file: either exists? %data/ops-state.red [
 ;  1 id          2 type       3 name       4 acronym
 ;  5 summary     6 board      7 lane       8 attention
 ;  9 path       10 tags      11 notes      12 pinned?
-; 13 updated-at
+; 13 updated-at 14 payload
+;
+; The payload slot is a type-specific property block. It is deliberately kept
+; as data, not code, so operators can inspect and recover state directly.
 ;
 ; Relationship records are blocks of:
 ; [id source-id type target-id status summary required? notes]
@@ -38,6 +41,7 @@ object-tags:    10
 object-notes:   11
 object-pinned:  12
 object-updated: 13
+object-payload: 14
 
 boards: [
     ["primary" "Operations Control" "Objects requiring current operational attention."]
@@ -66,6 +70,25 @@ object-types: [
     "stock"
     "artifact"
     "ai-workflow"
+]
+
+relationship-types: [
+    "governs"
+    "implements"
+    "contains"
+    "depends-on"
+    "produces"
+    "produced-by"
+    "consumes"
+    "used-by"
+    "operates-on"
+    "executed-by"
+    "invokes"
+    "part-of"
+    "references"
+    "supersedes"
+    "derived-from"
+    "validates"
 ]
 
 seed-objects: [
@@ -115,9 +138,73 @@ current-board: "primary"
 current-lane: "city-hall"
 selected-object: none
 visible-objects: copy []
+selected-relationship: none
+visible-relationships: copy []
+relationship-targets: copy []
 status-message: "Ready"
 
 ;-- Persistence ----------------------------------------------------------------
+
+default-payload: func [type-name [string!] /local template][
+    template: switch/default type-name [
+        "project" [
+            [
+                version "" completion "" phase "" next-action "" blocker ""
+                manifest "" repository ""
+            ]
+        ]
+        "powershell-operator" [
+            [
+                script "" entry-point "" working-directory ""
+                privilege "user" mutation "read" preview-supported true
+                confirmation-required false timeout-seconds 300 parameters []
+            ]
+        ]
+        "city-hall" [
+            [
+                authority-class "standard" version "" scope ""
+                canonical-source "" compliance-target "" evidence []
+            ]
+        ]
+        "stock" [
+            [
+                stock-class "reference" format "" source "" version ""
+                provenance "" verified false intended-use ""
+            ]
+        ]
+        "artifact" [
+            [
+                artifact-class "report" format "" version "" produced-at ""
+                size-bytes 0 canonical false published false verified false hashes []
+            ]
+        ]
+        "ai-workflow" [
+            [
+                trigger "manual" autonomy "assisted" write-scope "bounded"
+                approval-required false stop-condition "" steps []
+            ]
+        ]
+    ][
+        []
+    ]
+    copy/deep template
+]
+
+normalize-object: func [item [block!] /local payload][
+    either object-payload > length? item [
+        append/only item default-payload pick item object-type
+    ][
+        payload: pick item object-payload
+        unless block? payload [
+            poke item object-payload default-payload pick item object-type
+        ]
+    ]
+    item
+]
+
+normalize-state: does [
+    foreach item objects [normalize-object item]
+]
 
 save-state: does [
     save state-file reduce [objects relationships]
@@ -135,15 +222,18 @@ load-state: does [
         ][
             objects: first loaded-state
             relationships: second loaded-state
+            normalize-state
             status-message: rejoin ["Loaded " length? objects " objects"]
         ][
             objects: copy/deep seed-objects
             relationships: copy/deep seed-relationships
+            normalize-state
             status-message: "State invalid; loaded safe seed data"
         ]
     ][
         objects: copy/deep seed-objects
         relationships: copy/deep seed-relationships
+        normalize-state
         save-state
         status-message: "Created initial local state"
     ]
@@ -209,6 +299,87 @@ find-object: func [id [string!]][
     none
 ]
 
+type-for-lane: func [lane-id [string!]][
+    switch/default lane-id [
+        "city-hall" ["city-hall"]
+        "stock" ["stock"]
+        "operators" ["powershell-operator"]
+        "project-1" ["project"]
+        "project-2" ["project"]
+        "project-3" ["project"]
+    ]["project"]
+]
+
+type-context: func [type-name [string!]][
+    switch type-name [
+        "project" ["Work being undertaken. Track phase, next action, blocker, manifest, and repository without turning Ops into project management."]
+        "powershell-operator" ["Bounded executable capability. Record script, working directory, mutation, preview, confirmation, and timeout posture."]
+        "city-hall" ["Governing authority. Emphasize class, scope, canonical source, compliance target, and evidence."]
+        "stock" ["Reusable known material retained for future use. Distinguish it from produced artifacts."]
+        "artifact" ["Durable output or evidence. Deleting this record never deletes the referenced or managed file."]
+        "ai-workflow" ["Defined AI-assisted operational process. Record trigger, autonomy, write scope, approvals, stop condition, and steps."]
+        default ["Common operational record. Add meaning only where the operator can support it."]
+    ]
+]
+
+payload-heading: func [type-name [string!]][
+    switch/default type-name [
+        "project" ["PROJECT PAYLOAD"]
+        "powershell-operator" ["OPERATOR PAYLOAD"]
+        "city-hall" ["CITY HALL PAYLOAD"]
+        "stock" ["STOCK PAYLOAD"]
+        "artifact" ["ARTIFACT PAYLOAD"]
+        "ai-workflow" ["AI WORKFLOW PAYLOAD"]
+    ]["TYPE PAYLOAD"]
+]
+
+payload-help: func [type-name [string!]][
+    switch/default type-name [
+        "project" ["version, completion, phase, next-action, blocker, manifest, repository"]
+        "powershell-operator" ["script, entry-point, working-directory, privilege, mutation, preview, confirmation, timeout"]
+        "city-hall" ["authority-class, version, scope, canonical-source, compliance-target, evidence"]
+        "stock" ["stock-class, format, source, version, provenance, verified, intended-use"]
+        "artifact" ["artifact-class, format, version, produced-at, size-bytes, canonical, published, verified, hashes"]
+        "ai-workflow" ["trigger, autonomy, write-scope, approval-required, stop-condition, steps"]
+    ]["Type-specific Red property block"]
+]
+
+relationships-for-object: func [item [block!] /local result item-id][
+    result: copy []
+    item-id: pick item object-id
+    foreach relation relationships [
+        if any [item-id = second relation item-id = fourth relation] [
+            append/only result relation
+        ]
+    ]
+    result
+]
+
+relationship-label: func [relation [block!] /local source target][
+    source: find-object second relation
+    target: find-object fourth relation
+    rejoin [
+        either source [pick source object-name][second relation]
+        "  -- " third relation " -->  "
+        either target [pick target object-name][fourth relation]
+    ]
+]
+
+new-relationship-id: func [/local candidate next-number][
+    next-number: 1 + length? relationships
+    candidate: rejoin ["relationship-" next-number]
+    while [not none? find-relation candidate] [
+        next-number: next-number + 1
+        candidate: rejoin ["relationship-" next-number]
+    ]
+    candidate
+]
+
+find-relation: func [id [string!]][
+    foreach relation relationships [if id = first relation [return relation]]
+    none
+]
+
 today-text: does [form now/date]
 
 ;-- UI synchronization ---------------------------------------------------------
@@ -250,10 +421,25 @@ refresh-objects: does [
     metric-text/text: rejoin [
         length? objects " objects  |  "
         length? relationships " relationships  |  "
-        length? visible-objects " visible"
+        length? visible-objects " objects in lane"
     ]
     show [object-list board-title board-subtitle lane-title metric-text]
     either zero? selected-position [clear-inspector][select-visible selected-position]
+]
+
+refresh-relationships: does [
+    visible-relationships: either selected-object [relationships-for-object selected-object][copy []]
+    labels: copy []
+    foreach relation visible-relationships [append labels relationship-label relation]
+    relationship-list/data: labels
+    relationship-list/selected: none
+    selected-relationship: none
+    relationship-details/text: either empty? labels [
+        "No relationship records link to this object yet."
+    ][
+        "Select a relationship to inspect it, or create a new link."
+    ]
+    show [relationship-list relationship-details]
 ]
 
 refresh-all: does [
@@ -267,6 +453,7 @@ select-visible: func [position [integer!]][
     if any [position < 1 position > length? visible-objects] [exit]
     selected-object: pick visible-objects position
     inspector-type/text: uppercase copy pick selected-object object-type
+    inspector-context/text: type-context pick selected-object object-type
     name-box/text: pick selected-object object-name
     acronym-box/text: pick selected-object object-acronym
     summary-box/text: pick selected-object object-summary
@@ -274,24 +461,44 @@ select-visible: func [position [integer!]][
     path-box/text: pick selected-object object-path
     tags-box/text: pick selected-object object-tags
     notes-box/text: pick selected-object object-notes
+    payload-title/text: payload-heading pick selected-object object-type
+    payload-help-text/text: payload-help pick selected-object object-type
+    payload-box/text: mold pick selected-object object-payload
     pinned-box/data: pick selected-object object-pinned
     show [
-        inspector-type name-box acronym-box summary-box attention-box
-        path-box tags-box notes-box pinned-box
+        inspector-type inspector-context name-box acronym-box summary-box attention-box
+        path-box tags-box notes-box payload-title payload-help-text payload-box pinned-box
     ]
+    refresh-relationships
 ]
 
 clear-inspector: does [
     selected-object: none
     inspector-type/text: "NO OBJECT SELECTED"
+    inspector-context/text: "Select an object to see the operating context for its type."
     foreach face reduce [name-box acronym-box summary-box attention-box path-box tags-box notes-box][
         face/text: ""
     ]
+    payload-title/text: "TYPE PAYLOAD"
+    payload-help-text/text: "Select an object to edit its type-specific data."
+    payload-box/text: ""
     pinned-box/data: false
+    refresh-relationships
     show [
-        inspector-type name-box acronym-box summary-box attention-box
-        path-box tags-box notes-box pinned-box
+        inspector-type inspector-context name-box acronym-box summary-box attention-box
+        path-box tags-box notes-box payload-title payload-help-text payload-box pinned-box
     ]
+]
+
+select-relationship: func [position [integer!]][
+    if any [position < 1 position > length? visible-relationships] [exit]
+    selected-relationship: pick visible-relationships position
+    relationship-details/text: rejoin [
+        "Status: " fifth selected-relationship "^/"
+        "Summary: " sixth selected-relationship "^/"
+        "Required: " either seventh selected-relationship ["yes"]["no"]
+    ]
+    show relationship-details
 ]
 
 select-board: func [board-id [string!]][
@@ -313,10 +520,12 @@ select-lane: func [position [integer!]][
 
 new-object: does [
     new-name: rejoin ["New " 1 + length? objects]
+    new-type: type-for-lane current-lane
     item: reduce [
-        make-id new-name "project" new-name "" "Describe why this object matters."
-        current-board current-lane "unclassified" "" "Project" "" false today-text
+        make-id new-name new-type new-name "" "Describe why this object matters."
+        current-board current-lane "unclassified" "" new-type "" false today-text
     ]
+    append/only item default-payload pick item object-type
     append/only objects item
     save-state
     refresh-objects
@@ -334,6 +543,13 @@ save-object: does [
         show status-bar
         exit
     ]
+    parsed-payload: attempt [load payload-box/text]
+    unless block? parsed-payload [
+        status-message: "Typed payload must be a Red block, for example: [phase {Hardening}]"
+        status-bar/text: status-message
+        show status-bar
+        exit
+    ]
     poke selected-object object-name name-box/text
     poke selected-object object-acronym acronym-box/text
     poke selected-object object-summary summary-box/text
@@ -343,6 +559,7 @@ save-object: does [
     poke selected-object object-notes notes-box/text
     poke selected-object object-pinned to logic! pinned-box/data
     poke selected-object object-updated today-text
+    poke selected-object object-payload parsed-payload
     save-state
     refresh-objects
 ]
@@ -402,12 +619,99 @@ confirm-delete: does [
     if answer [delete-selected]
 ]
 
+create-relationship: does [
+    if none? selected-object [exit]
+    relationship-targets: copy []
+    target-labels: copy []
+    selected-id: pick selected-object object-id
+    foreach item objects [
+        if selected-id <> pick item object-id [
+            append/only relationship-targets item
+            append target-labels object-label item
+        ]
+    ]
+    if empty? target-labels [
+        alert "Create another object before creating a relationship."
+        exit
+    ]
+    relation-window: layout [
+        title "Create relationship"
+        backdrop 24.31.47
+        below
+        text "TARGET OBJECT" 360x22 bold font-color 132.150.180
+        relation-target-list: text-list 360x112 data target-labels
+        text "RELATIONSHIP TYPE" 360x22 bold font-color 132.150.180
+        relation-type-list: text-list 170x150 data relationship-types
+        relation-type-box: field "references" 180x28
+        text "Select a canonical type or edit the field." 360x22 font-color 132.150.180
+        text "OPERATOR SUMMARY" 360x22 bold font-color 132.150.180
+        relation-summary-box: area "Describe why this link matters." 360x68
+        across
+        button "Create Link" 170x30 [
+            if relation-type-list/selected [
+                relation-type-box/text: pick relationship-types relation-type-list/selected
+            ]
+            if none? relation-target-list/selected [
+                alert "Select a target object."
+                exit
+            ]
+            if empty? trim copy relation-type-box/text [
+                alert "A relationship type is required."
+                exit
+            ]
+            target: pick relationship-targets relation-target-list/selected
+            append/only relationships reduce [
+                new-relationship-id
+                pick selected-object object-id
+                trim copy relation-type-box/text
+                pick target object-id
+                "active"
+                trim copy relation-summary-box/text
+                false
+                ""
+            ]
+            save-state
+            status-message: "Created relationship record"
+            unview
+            refresh-objects
+        ]
+        button "Cancel" 170x30 [unview]
+    ]
+    view/flags relation-window 'modal
+]
+
+delete-selected-relationship: does [
+    relation-to-delete: selected-relationship
+    if all [none? relation-to-delete 1 = length? visible-relationships] [
+        relation-to-delete: first visible-relationships
+    ]
+    if none? relation-to-delete [
+        status-message: "Select a relationship first (or open an object with exactly one linked relationship)"
+        status-bar/text: status-message
+        show status-bar
+        exit
+    ]
+    position: index? find/only relationships relation-to-delete
+    if none? position [
+        status-message: "Relationship record was not found; no change was made"
+        status-bar/text: status-message
+        show status-bar
+        exit
+    ]
+    remove at relationships position
+    selected-relationship: none
+    save-state
+    status-message: "Deleted relationship record; connected objects and paths are untouched"
+    refresh-objects
+]
+
 ;-- Native Red/View surface ----------------------------------------------------
 
 load-state
 
 main-window: layout [
     title "Aptlantis Ops"
+    on-close [quit]
     backdrop 20.26.40
     style section-label: text 110x24 font-color 132.150.180 font-size 9
     style action: button 108x30
@@ -428,27 +732,35 @@ main-window: layout [
     return
 
     across
-    panel 210x650 24.31.47 [
+    panel 210x875 24.31.47 [
         below
         text "WORKSPACE" 180x24 bold font-color 118.171.231
         search-box: field "" 180x30 hint "Search objects" [refresh-objects]
         text "LANES" 180x24 bold font-color 132.150.180
-        lane-list: text-list 180x430 data [] [select-lane face/selected]
+        lane-list: text-list 180x655 data [] [select-lane face/selected]
         action "New Object" [new-object]
         metric-text: text "" 180x52 font-color 132.150.180 wrap
     ]
 
-    panel 380x650 27.35.52 [
+    panel 380x875 27.35.52 [
         below
         lane-title: text "Lane" 350x30 bold font-size 15 font-color 232.241.255
         text "Operational objects surfaced here" 350x24 font-color 132.150.180
-        object-list: text-list 350x530 data [] [select-visible face/selected]
+        object-list: text-list 350x755 data [] [select-visible face/selected]
         text "* pinned object" 350x24 font-color 132.150.180
     ]
 
-    panel 400x650 24.31.47 [
+    panel 400x875 24.31.47 [
         below
         inspector-type: text "NO OBJECT SELECTED" 370x24 bold font-color 107.190.255
+        inspector-context: text "Select an object to see the operating context for its type." 370x42 wrap font-color 132.150.180
+        section-label "LINKED RELATIONSHIPS"
+        relationship-list: text-list 370x58 data [] [select-relationship face/selected]
+        relationship-details: text "" 370x38 wrap font-color 132.150.180
+        across
+        button "Create Link" 180x30 [create-relationship]
+        button "Delete Link" 180x30 [delete-selected-relationship]
+        return
         section-label "NAME"
         name-box: field "" 370x28
         section-label "ACRONYM"
@@ -471,8 +783,11 @@ main-window: layout [
         path-box: field "" 370x28
         section-label "TAGS"
         tags-box: field "" 370x28
+        payload-title: text "TYPE PAYLOAD" 370x20 bold font-color 132.150.180 font-size 9
+        payload-help-text: text "" 370x30 wrap font-color 132.150.180
+        payload-box: area "" 370x92
         section-label "NOTES"
-        notes-box: area "" 370x72
+        notes-box: area "" 370x52
         across
         action "Save" [save-object]
         action "Open Path" [open-selected-path]
