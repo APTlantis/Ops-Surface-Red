@@ -37,9 +37,9 @@ The expected output is `dist\Aptlantis-Ops.exe`.
 - Switch between primary and secondary boards.
 - Select operational lanes.
 - Search the selected lane by name, summary, or tags.
-- Create a new record in the current lane with a lane-appropriate object type.
+- Create a new record through a draft inspector flow that requires an explicit type selection.
 - Inspect and edit common object fields.
-- Edit a compact type-specific payload block for each object type.
+- Select or change an object type and edit a compact type-specific payload block.
 - Pin an object as surfaced attention.
 - Move a record to the other board.
 - Open a recorded path with Windows Explorer.
@@ -47,6 +47,8 @@ The expected output is `dist\Aptlantis-Ops.exe`.
 - Persist objects and relationships in `data/ops-state.red`.
 
 Relationship creation is guided by the canonical vocabulary: `governs`, `implements`, `contains`, `depends-on`, `produces`, `produced-by`, `consumes`, `used-by`, `operates-on`, `executed-by`, `invokes`, `part-of`, `references`, `supersedes`, `derived-from`, and `validates`.
+
+Type changes are transactional. Selecting a different type in the inspector immediately shows that type's default payload, but the stored object remains unchanged until Save. Saving a changed type replaces only the typed payload; shared envelope fields and relationships survive.
 
 ## Object Types
 

@@ -141,6 +141,8 @@ visible-objects: copy []
 selected-relationship: none
 visible-relationships: copy []
 relationship-targets: copy []
+draft-new?: false
+proposed-object-type: none
 status-message: "Ready"
 
 ;-- Persistence ----------------------------------------------------------------
@@ -299,15 +301,22 @@ find-object: func [id [string!]][
     none
 ]
 
-type-for-lane: func [lane-id [string!]][
-    switch/default lane-id [
-        "city-hall" ["city-hall"]
-        "stock" ["stock"]
-        "operators" ["powershell-operator"]
-        "project-1" ["project"]
-        "project-2" ["project"]
-        "project-3" ["project"]
-    ]["project"]
+index-of-object-type: func [type-name [string!] /local index][
+    index: 1
+    foreach candidate object-types [
+        if type-name = candidate [return index]
+        index: index + 1
+    ]
+    none
+]
+
+selected-object-type: func [/local selected][
+    selected: type-list/selected
+    either all [integer? selected selected >= 1 selected <= length? object-types][
+        pick object-types selected
+    ][
+        none
+    ]
 ]
 
 type-context: func [type-name [string!]][
@@ -342,6 +351,39 @@ payload-help: func [type-name [string!]][
         "artifact" ["artifact-class, format, version, produced-at, size-bytes, canonical, published, verified, hashes"]
         "ai-workflow" ["trigger, autonomy, write-scope, approval-required, stop-condition, steps"]
     ]["Type-specific Red property block"]
+]
+
+show-payload-for-type: func [type-name [string! none!] payload [block! none!]][
+    inspector-type/text: either type-name [uppercase copy type-name]["NO TYPE SELECTED"]
+    inspector-context/text: either type-name [
+        type-context type-name
+    ][
+        "Choose a type before saving this object."
+    ]
+    payload-title/text: either type-name [payload-heading type-name]["TYPE PAYLOAD"]
+    payload-help-text/text: either type-name [
+        payload-help type-name
+    ][
+        "Select a type to load its default payload."
+    ]
+    payload-box/text: either type-name [
+        mold either payload [payload][default-payload type-name]
+    ][
+        ""
+    ]
+    show [inspector-type inspector-context payload-title payload-help-text payload-box]
+]
+
+change-inspector-type: func [position [integer! none!] /local next-type][
+    if none? position [
+        proposed-object-type: none
+        show-payload-for-type none none
+        exit
+    ]
+    next-type: selected-object-type
+    if next-type = proposed-object-type [exit]
+    proposed-object-type: next-type
+    show-payload-for-type next-type none
 ]
 
 relationships-for-object: func [item [block!] /local result item-id][
@@ -451,9 +493,10 @@ refresh-all: does [
 
 select-visible: func [position [integer!]][
     if any [position < 1 position > length? visible-objects] [exit]
+    draft-new?: false
     selected-object: pick visible-objects position
-    inspector-type/text: uppercase copy pick selected-object object-type
-    inspector-context/text: type-context pick selected-object object-type
+    proposed-object-type: pick selected-object object-type
+    type-list/selected: index-of-object-type pick selected-object object-type
     name-box/text: pick selected-object object-name
     acronym-box/text: pick selected-object object-acronym
     summary-box/text: pick selected-object object-summary
@@ -461,19 +504,19 @@ select-visible: func [position [integer!]][
     path-box/text: pick selected-object object-path
     tags-box/text: pick selected-object object-tags
     notes-box/text: pick selected-object object-notes
-    payload-title/text: payload-heading pick selected-object object-type
-    payload-help-text/text: payload-help pick selected-object object-type
-    payload-box/text: mold pick selected-object object-payload
+    show-payload-for-type pick selected-object object-type pick selected-object object-payload
     pinned-box/data: pick selected-object object-pinned
     show [
-        inspector-type inspector-context name-box acronym-box summary-box attention-box
-        path-box tags-box notes-box payload-title payload-help-text payload-box pinned-box
+        type-list name-box acronym-box summary-box attention-box path-box tags-box notes-box pinned-box
     ]
     refresh-relationships
 ]
 
 clear-inspector: does [
     selected-object: none
+    draft-new?: false
+    proposed-object-type: none
+    type-list/selected: none
     inspector-type/text: "NO OBJECT SELECTED"
     inspector-context/text: "Select an object to see the operating context for its type."
     foreach face reduce [name-box acronym-box summary-box attention-box path-box tags-box notes-box][
@@ -485,7 +528,7 @@ clear-inspector: does [
     pinned-box/data: false
     refresh-relationships
     show [
-        inspector-type inspector-context name-box acronym-box summary-box attention-box
+        type-list inspector-type inspector-context name-box acronym-box summary-box attention-box
         path-box tags-box notes-box payload-title payload-help-text payload-box pinned-box
     ]
 ]
@@ -519,37 +562,65 @@ select-lane: func [position [integer!]][
 ;-- Mutations ------------------------------------------------------------------
 
 new-object: does [
+    clear-inspector
+    draft-new?: true
     new-name: rejoin ["New " 1 + length? objects]
-    new-type: type-for-lane current-lane
-    item: reduce [
-        make-id new-name new-type new-name "" "Describe why this object matters."
-        current-board current-lane "unclassified" "" new-type "" false today-text
+    object-list/selected: none
+    name-box/text: new-name
+    summary-box/text: "Describe why this object matters."
+    attention-box/text: "unclassified"
+    inspector-type/text: "NEW OBJECT"
+    inspector-context/text: "Choose a type, fill the shared fields, then save to create the record."
+    payload-help-text/text: "No object is created until Save."
+    status-message: "Draft object ready; choose a type before saving"
+    status-bar/text: status-message
+    show [
+        object-list name-box summary-box attention-box inspector-type inspector-context
+        payload-help-text status-bar
     ]
-    append/only item default-payload pick item object-type
-    append/only objects item
-    save-state
-    refresh-objects
-    object-list/selected: length? visible-objects
-    show object-list
-    select-visible length? visible-objects
     focus name-box
 ]
 
 save-object: does [
-    if none? selected-object [exit]
+    if all [none? selected-object not draft-new?] [exit]
     if empty? trim copy name-box/text [
         status-message: "Name is required"
         status-bar/text: status-message
         show status-bar
         exit
     ]
-    parsed-payload: attempt [load payload-box/text]
-    unless block? parsed-payload [
-        status-message: "Typed payload must be a Red block, for example: [phase {Hardening}]"
+    next-type: selected-object-type
+    if none? next-type [
+        status-message: "Select an object type before saving"
         status-bar/text: status-message
         show status-bar
         exit
     ]
+    existing-type: either selected-object [pick selected-object object-type][none]
+    payload-to-save: none
+    either all [selected-object next-type <> existing-type][
+        payload-to-save: default-payload next-type
+    ][
+        parsed-payload: attempt [load payload-box/text]
+        unless block? parsed-payload [
+            status-message: "Typed payload must be a Red block, for example: [phase {Hardening}]"
+            status-bar/text: status-message
+            show status-bar
+            exit
+        ]
+        payload-to-save: parsed-payload
+    ]
+    if draft-new? [
+        selected-object: reduce [
+            make-id name-box/text next-type name-box/text acronym-box/text summary-box/text
+            current-board current-lane attention-box/text path-box/text tags-box/text
+            notes-box/text to logic! pinned-box/data today-text
+        ]
+        append/only selected-object payload-to-save
+        append/only objects selected-object
+        draft-new?: false
+    ]
+    poke selected-object object-type next-type
     poke selected-object object-name name-box/text
     poke selected-object object-acronym acronym-box/text
     poke selected-object object-summary summary-box/text
@@ -559,7 +630,7 @@ save-object: does [
     poke selected-object object-notes notes-box/text
     poke selected-object object-pinned to logic! pinned-box/data
     poke selected-object object-updated today-text
-    poke selected-object object-payload parsed-payload
+    poke selected-object object-payload payload-to-save
     save-state
     refresh-objects
 ]
@@ -753,20 +824,22 @@ main-window: layout [
     panel 400x875 24.31.47 [
         below
         inspector-type: text "NO OBJECT SELECTED" 370x24 bold font-color 107.190.255
-        inspector-context: text "Select an object to see the operating context for its type." 370x42 wrap font-color 132.150.180
+        inspector-context: text "Select an object to see the operating context for its type." 370x38 wrap font-color 132.150.180
         section-label "LINKED RELATIONSHIPS"
-        relationship-list: text-list 370x58 data [] [select-relationship face/selected]
-        relationship-details: text "" 370x38 wrap font-color 132.150.180
+        relationship-list: text-list 370x44 data [] [select-relationship face/selected]
+        relationship-details: text "" 370x30 wrap font-color 132.150.180
         across
         button "Create Link" 180x30 [create-relationship]
         button "Delete Link" 180x30 [delete-selected-relationship]
         return
+        section-label "TYPE"
+        type-list: text-list 370x72 data object-types [change-inspector-type face/selected]
         section-label "NAME"
         name-box: field "" 370x28
         section-label "ACRONYM"
         acronym-box: field "" 370x28
         section-label "SUMMARY"
-        summary-box: area "" 370x72
+        summary-box: area "" 370x54
         across
         panel 180x60 24.31.47 [
             below
@@ -785,9 +858,9 @@ main-window: layout [
         tags-box: field "" 370x28
         payload-title: text "TYPE PAYLOAD" 370x20 bold font-color 132.150.180 font-size 9
         payload-help-text: text "" 370x30 wrap font-color 132.150.180
-        payload-box: area "" 370x92
+        payload-box: area "" 370x78
         section-label "NOTES"
-        notes-box: area "" 370x52
+        notes-box: area "" 370x40
         across
         action "Save" [save-object]
         action "Open Path" [open-selected-path]

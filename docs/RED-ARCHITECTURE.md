@@ -45,7 +45,9 @@ The six payload templates are:
 - `artifact`: artifact class, format, version, production time, size, canonical/published/verified state, hashes.
 - `ai-workflow`: trigger, autonomy, write scope, approval boundary, stop condition, steps.
 
-New records infer an initial type from their lane where the lane is type-specific: City Hall creates `city-hall`, Stock creates `stock`, Operators creates `powershell-operator`, and project lanes create `project`. Secondary work lanes default to `project` until a more specific workflow is chosen.
+New records begin as inspector drafts. They are not added to the stored object list until Save, and Save requires an explicit type selection.
+
+Type selection is authoritative. The inspector keeps the persisted object type separate from the proposed selected type: changing the selected type immediately renders the new type's default payload, but the stored object is unchanged until Save. Saving with the same type parses and stores the edited payload block. Saving with a changed type discards the old typed payload and replaces it with the selected type's default payload while preserving shared envelope fields and relationships.
 
 Relationship creation is guided by the canonical relationship vocabulary from the data-shape model: `governs`, `implements`, `contains`, `depends-on`, `produces`, `produced-by`, `consumes`, `used-by`, `operates-on`, `executed-by`, `invokes`, `part-of`, `references`, `supersedes`, `derived-from`, and `validates`.
 
