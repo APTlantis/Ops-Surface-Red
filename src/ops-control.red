@@ -11,6 +11,12 @@ state-file: either exists? %data/ops-state.red [
     %../data/ops-state.red
 ]
 
+state-backup-file: either exists? %data/ops-state.red [
+    %data/ops-state.red.v0.bak
+][
+    %../data/ops-state.red.v0.bak
+]
+
 ;-- State schema ---------------------------------------------------------------
 ;
 ; Each operational object is a fixed-position block. Keeping the persisted
@@ -42,6 +48,7 @@ object-notes:   11
 object-pinned:  12
 object-updated: 13
 object-payload: 14
+state-schema-version: 1
 
 boards: [
     ["primary" "Operations Control" "Objects requiring current operational attention."]
@@ -89,6 +96,11 @@ relationship-types: [
     "supersedes"
     "derived-from"
     "validates"
+]
+
+payload-logic-fields: [
+    preview-supported confirmation-required verified canonical published
+    approval-required
 ]
 
 seed-objects: [
@@ -144,14 +156,16 @@ relationship-targets: copy []
 draft-new?: false
 proposed-object-type: none
 status-message: "Ready"
+state-needs-migration?: false
+validation-error-message: none
 
 ;-- Persistence ----------------------------------------------------------------
 
-default-payload: func [type-name [string!] /local template][
+default-payload-for: func [type-name [string!] /local template][
     template: switch/default type-name [
         "project" [
             [
-                version "" completion "" phase "" next-action "" blocker ""
+                version "" completion 0 phase "" next-action "" blocker ""
                 manifest "" repository ""
             ]
         ]
@@ -164,8 +178,7 @@ default-payload: func [type-name [string!] /local template][
         ]
         "city-hall" [
             [
-                authority-class "standard" version "" scope ""
-                canonical-source "" compliance-target "" evidence []
+                authority-class "standard" version "" scope "" canonical-source ""
             ]
         ]
         "stock" [
@@ -189,48 +202,283 @@ default-payload: func [type-name [string!] /local template][
     ][
         []
     ]
-    copy/deep template
+    template: copy/deep template
+    normalize-payload-logics template
+    template
+]
+
+normalize-logic-value: func [value][
+    if logic? value [return value]
+    if all [word? value value = 'true] [return true]
+    if all [word? value value = 'false] [return false]
+    value
+]
+
+normalize-payload-logics: func [payload [block!] /local key position][
+    foreach key payload-logic-fields [
+        position: find payload key
+        if position [poke position 2 normalize-logic-value second position]
+    ]
+    payload
 ]
 
 normalize-object: func [item [block!] /local payload][
     either object-payload > length? item [
-        append/only item default-payload pick item object-type
+        append/only item default-payload-for pick item object-type
     ][
         payload: pick item object-payload
         unless block? payload [
-            poke item object-payload default-payload pick item object-type
+            poke item object-payload default-payload-for pick item object-type
         ]
+    ]
+    if object-pinned <= length? item [
+        poke item object-pinned normalize-logic-value pick item object-pinned
+    ]
+    if all [object-payload <= length? item block? pick item object-payload] [
+        normalize-payload-logics pick item object-payload
     ]
     item
 ]
 
+normalize-relationship: func [relation [block!]][
+    if 7 <= length? relation [poke relation 7 normalize-logic-value pick relation 7]
+    relation
+]
+
 normalize-state: does [
     foreach item objects [normalize-object item]
+    foreach relation relationships [normalize-relationship relation]
 ]
 
-save-state: does [
-    save state-file reduce [objects relationships]
-    status-message: rejoin ["Saved " length? objects " objects"]
+payload-validation-error: func [type-name [string!] payload [block!] /local template field-count pair-index key-position expected-key actual-key expected-value actual-value][
+    template: default-payload-for type-name
+    if empty? template [return rejoin ["Unknown object type: " type-name]]
+    field-count: (length? template) / 2
+    if (length? payload) <> (length? template) [
+        return rejoin ["Payload for " type-name " must contain exactly " field-count " fields"]
+    ]
+    repeat pair-index field-count [
+        key-position: (pair-index * 2) - 1
+        expected-key: pick template key-position
+        actual-key: pick payload key-position
+        if actual-key <> expected-key [
+            return rejoin ["Payload field " pair-index " must be " mold expected-key]
+        ]
+        expected-value: pick template (key-position + 1)
+        actual-value: pick payload (key-position + 1)
+        if (type? actual-value) <> (type? expected-value) [
+            return rejoin [mold expected-key " must be " mold type? expected-value]
+        ]
+    ]
+    none
 ]
 
-load-state: does [
+find-object-in: func [candidate-objects [block!] id [string!]][
+    foreach item candidate-objects [
+        if all [block? item not empty? item id = first item] [return item]
+    ]
+    none
+]
+
+valid-object-record?: func [item /local field payload-error][
+    if not block? item [
+        validation-error-message: "Object record is not a block"
+        return false
+    ]
+    if object-payload <> length? item [
+        validation-error-message: rejoin ["Object record has " length? item " fields; expected " object-payload]
+        return false
+    ]
+    foreach field [
+        object-id object-type object-name object-acronym object-summary
+        object-board object-lane object-attn object-path object-tags
+        object-notes object-updated
+    ][
+        unless string? pick item get field [
+            validation-error-message: rejoin ["Object field " mold field " must be a string"]
+            return false
+        ]
+    ]
+    unless find object-types pick item object-type [
+        validation-error-message: rejoin ["Unknown object type: " pick item object-type]
+        return false
+    ]
+    unless logic? pick item object-pinned [
+        validation-error-message: "Object pinned field must be logic"
+        return false
+    ]
+    unless block? pick item object-payload [
+        validation-error-message: "Object payload must be a block"
+        return false
+    ]
+    payload-error: payload-validation-error pick item object-type pick item object-payload
+    if payload-error [
+        validation-error-message: payload-error
+        return false
+    ]
+    true
+]
+
+valid-objects?: func [candidate-objects [block!] /local ids item id record-index][
+    ids: copy []
+    record-index: 0
+    foreach item candidate-objects [
+        record-index: record-index + 1
+        unless valid-object-record? item [
+            validation-error-message: rejoin ["Object " record-index ": " validation-error-message]
+            return false
+        ]
+        id: pick item object-id
+        if empty? id [
+            validation-error-message: rejoin ["Object " record-index " has an empty ID"]
+            return false
+        ]
+        if find ids id [
+            validation-error-message: rejoin ["Duplicate object ID: " id]
+            return false
+        ]
+        append ids id
+    ]
+    true
+]
+
+valid-relationship-record?: func [relation candidate-objects [block!]][
+    if not block? relation [
+        validation-error-message: "Relationship record is not a block"
+        return false
+    ]
+    if 8 <> length? relation [
+        validation-error-message: rejoin ["Relationship record has " length? relation " fields; expected 8"]
+        return false
+    ]
+    unless all [
+        string? first relation
+        not empty? first relation
+        string? second relation
+        string? third relation
+        not empty? trim copy third relation
+        string? fourth relation
+        string? fifth relation
+        string? pick relation 6
+        logic? pick relation 7
+        string? pick relation 8
+    ][
+        validation-error-message: rejoin ["Relationship has invalid scalar fields: " mold first relation]
+        return false
+    ]
+    unless find-object-in candidate-objects second relation [
+        validation-error-message: rejoin ["Relationship source does not exist: " second relation]
+        return false
+    ]
+    unless find-object-in candidate-objects fourth relation [
+        validation-error-message: rejoin ["Relationship target does not exist: " fourth relation]
+        return false
+    ]
+    true
+]
+
+valid-relationships?: func [candidate-relationships [block!] candidate-objects [block!] /local ids relation id record-index][
+    ids: copy []
+    record-index: 0
+    foreach relation candidate-relationships [
+        record-index: record-index + 1
+        unless valid-relationship-record? relation candidate-objects [
+            validation-error-message: rejoin ["Relationship " record-index ": " validation-error-message]
+            return false
+        ]
+        id: first relation
+        if find ids id [
+            validation-error-message: rejoin ["Duplicate relationship ID: " id]
+            return false
+        ]
+        append ids id
+    ]
+    true
+]
+
+save-state: func [/local backup-ok? persisted-state save-ok?][
+    validation-error-message: none
+    if state-needs-migration? [
+        unless exists? state-backup-file [
+            backup-ok?: attempt [
+                write/binary state-backup-file read/binary state-file
+                true
+            ]
+            unless backup-ok? [
+                status-message: "Save stopped: could not create the migration backup"
+                return false
+            ]
+        ]
+    ]
+    unless all [valid-objects? objects valid-relationships? relationships objects] [
+        status-message: "Save stopped: state validation failed"
+        return false
+    ]
+    persisted-state: reduce [
+        'schema-version state-schema-version
+        'objects objects
+        'relationships relationships
+    ]
+    save-ok?: attempt [save state-file persisted-state true]
+    unless save-ok? [
+        status-message: "Save failed; the existing state file was not intentionally replaced"
+        return false
+    ]
+    state-needs-migration?: false
+    status-message: rejoin ["Saved " length? objects " objects (schema v" state-schema-version ")"]
+    true
+]
+
+load-state: func [/local loaded-state candidate-objects candidate-relationships loaded-version legacy-state?][
+    validation-error-message: none
     either exists? state-file [
         loaded-state: attempt [load state-file]
-        either all [
+        candidate-objects: none
+        candidate-relationships: none
+        loaded-version: none
+        legacy-state?: all [
             block? loaded-state
             2 = length? loaded-state
             block? first loaded-state
             block? second loaded-state
+        ]
+        either legacy-state? [
+            candidate-objects: copy/deep first loaded-state
+            candidate-relationships: copy/deep second loaded-state
+            loaded-version: 0
         ][
-            objects: first loaded-state
-            relationships: second loaded-state
-            normalize-state
-            status-message: rejoin ["Loaded " length? objects " objects"]
+            if block? loaded-state [
+                loaded-version: select loaded-state 'schema-version
+                candidate-objects: select loaded-state 'objects
+                candidate-relationships: select loaded-state 'relationships
+            ]
+        ]
+        if all [block? candidate-objects block? candidate-relationships] [
+            foreach item candidate-objects [normalize-object item]
+            foreach relation candidate-relationships [normalize-relationship relation]
+        ]
+        either all [
+            any [loaded-version = 0 loaded-version = state-schema-version]
+            block? candidate-objects
+            block? candidate-relationships
+            valid-objects? candidate-objects
+            valid-relationships? candidate-relationships candidate-objects
+        ][
+            objects: candidate-objects
+            relationships: candidate-relationships
+            state-needs-migration?: legacy-state?
+            status-message: rejoin [
+                "Loaded " length? objects " objects"
+                either state-needs-migration? ["; legacy state will be backed up on Save"][""]
+            ]
         ][
             objects: copy/deep seed-objects
             relationships: copy/deep seed-relationships
             normalize-state
-            status-message: "State invalid; loaded safe seed data"
+            status-message: rejoin [
+                "State invalid; loaded safe seed data"
+                either validation-error-message [rejoin [": " validation-error-message]][""]
+            ]
         ]
     ][
         objects: copy/deep seed-objects
@@ -310,6 +558,15 @@ index-of-object-type: func [type-name [string!] /local index][
     none
 ]
 
+index-of-relationship-type: func [type-name [string!] /local index][
+    index: 1
+    foreach candidate relationship-types [
+        if type-name = candidate [return index]
+        index: index + 1
+    ]
+    none
+]
+
 selected-object-type: func [/local selected][
     selected: type-list/selected
     either all [integer? selected selected >= 1 selected <= length? object-types][
@@ -323,7 +580,7 @@ type-context: func [type-name [string!]][
     switch type-name [
         "project" ["Work being undertaken. Track phase, next action, blocker, manifest, and repository without turning Ops into project management."]
         "powershell-operator" ["Bounded executable capability. Record script, working directory, mutation, preview, confirmation, and timeout posture."]
-        "city-hall" ["Governing authority. Emphasize class, scope, canonical source, compliance target, and evidence."]
+        "city-hall" ["Governing authority. Emphasize authority class, scope, and canonical source."]
         "stock" ["Reusable known material retained for future use. Distinguish it from produced artifacts."]
         "artifact" ["Durable output or evidence. Deleting this record never deletes the referenced or managed file."]
         "ai-workflow" ["Defined AI-assisted operational process. Record trigger, autonomy, write scope, approvals, stop condition, and steps."]
@@ -346,7 +603,7 @@ payload-help: func [type-name [string!]][
     switch/default type-name [
         "project" ["version, completion, phase, next-action, blocker, manifest, repository"]
         "powershell-operator" ["script, entry-point, working-directory, privilege, mutation, preview, confirmation, timeout"]
-        "city-hall" ["authority-class, version, scope, canonical-source, compliance-target, evidence"]
+        "city-hall" ["authority-class, version, scope, canonical-source"]
         "stock" ["stock-class, format, source, version, provenance, verified, intended-use"]
         "artifact" ["artifact-class, format, version, produced-at, size-bytes, canonical, published, verified, hashes"]
         "ai-workflow" ["trigger, autonomy, write-scope, approval-required, stop-condition, steps"]
@@ -367,7 +624,7 @@ show-payload-for-type: func [type-name [string! none!] payload [block! none!]][
         "Select a type to load its default payload."
     ]
     payload-box/text: either type-name [
-        mold either payload [payload][default-payload type-name]
+        mold either payload [payload][default-payload-for type-name]
     ][
         ""
     ]
@@ -538,8 +795,8 @@ select-relationship: func [position [integer!]][
     selected-relationship: pick visible-relationships position
     relationship-details/text: rejoin [
         "Status: " fifth selected-relationship "^/"
-        "Summary: " sixth selected-relationship "^/"
-        "Required: " either seventh selected-relationship ["yes"]["no"]
+        "Summary: " pick selected-relationship 6 "^/"
+        "Required: " either pick selected-relationship 7 ["yes"]["no"]
     ]
     show relationship-details
 ]
@@ -599,7 +856,7 @@ save-object: does [
     existing-type: either selected-object [pick selected-object object-type][none]
     payload-to-save: none
     either all [selected-object next-type <> existing-type][
-        payload-to-save: default-payload next-type
+        payload-to-save: default-payload-for next-type
     ][
         parsed-payload: attempt [load payload-box/text]
         unless block? parsed-payload [
@@ -609,6 +866,13 @@ save-object: does [
             exit
         ]
         payload-to-save: parsed-payload
+    ]
+    payload-error: payload-validation-error next-type payload-to-save
+    if payload-error [
+        status-message: rejoin ["Payload invalid: " payload-error]
+        status-bar/text: status-message
+        show status-bar
+        exit
     ]
     if draft-new? [
         selected-object: reduce [
@@ -712,29 +976,25 @@ create-relationship: does [
         text "TARGET OBJECT" 360x22 bold font-color 132.150.180
         relation-target-list: text-list 360x112 data target-labels
         text "RELATIONSHIP TYPE" 360x22 bold font-color 132.150.180
-        relation-type-list: text-list 170x150 data relationship-types
-        relation-type-box: field "references" 180x28
-        text "Select a canonical type or edit the field." 360x22 font-color 132.150.180
+        relation-type-list: text-list 360x150 data relationship-types
+        text "Select a canonical relationship type." 360x22 font-color 132.150.180
         text "OPERATOR SUMMARY" 360x22 bold font-color 132.150.180
         relation-summary-box: area "Describe why this link matters." 360x68
         across
         button "Create Link" 170x30 [
-            if relation-type-list/selected [
-                relation-type-box/text: pick relationship-types relation-type-list/selected
-            ]
             if none? relation-target-list/selected [
                 alert "Select a target object."
                 exit
             ]
-            if empty? trim copy relation-type-box/text [
-                alert "A relationship type is required."
+            if none? relation-type-list/selected [
+                alert "Select a canonical relationship type."
                 exit
             ]
             target: pick relationship-targets relation-target-list/selected
             append/only relationships reduce [
                 new-relationship-id
                 pick selected-object object-id
-                trim copy relation-type-box/text
+                pick relationship-types relation-type-list/selected
                 pick target object-id
                 "active"
                 trim copy relation-summary-box/text
@@ -748,6 +1008,7 @@ create-relationship: does [
         ]
         button "Cancel" 170x30 [unview]
     ]
+    relation-type-list/selected: index-of-relationship-type "references"
     view/flags relation-window 'modal
 ]
 

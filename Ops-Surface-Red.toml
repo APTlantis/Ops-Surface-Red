@@ -57,6 +57,7 @@ project_readme = "Project-README.md"
 readme = "README.md"
 agent_instructions = "AGENTS.md"
 architecture = "docs\\RED-ARCHITECTURE.md"
+getting_started = "docs\\GETTING-STARTED.md"
 
 [relationships]
 parent = "D:\\DRS"
@@ -78,23 +79,23 @@ external_integration = "Windows shell path opening; bounded operators deferred"
 typed_payloads = "Field 14 Red property block, normalized from older 13-field records"
 
 [state]
-stability = "source-complete-unverified"
+stability = "runtime-and-build-verified-partial-smoke"
 active_development = true
 known_gaps = [
-    "The current session has not found red.exe or redc.exe, so fresh runtime and compiled-build verification remain pending.",
-    "The typed payload editor uses editable Red property blocks; stricter payload validation and a schema/version header remain future hardening.",
+    "The compiled app launches and loads current state, but the complete interactive persistence suite remains pending.",
+    "Schema-v1 validation and backup-before-migration are implemented; a live save, backup, close, and reopen migration smoke remains pending.",
     "Managed artifact intake and bounded operator execution remain roadmap work.",
 ]
 
 [verification]
-level = "static-source-validation-only"
-evidence = "The Tauri scaffold was removed from the active source tree and retained under legacy; Red source, seed data, Windows launch/build scripts, and rewritten governance documents were added on 2026-09-05."
-reviewed = "2026-09-05"
+level = "native-build-and-bounded-launch-smoke"
+evidence = "redc.exe compiled dist\\Aptlantis-Ops.exe on 2026-09-07. A bounded native launch remained live while loading the current legacy state, and the state SHA-256 remained unchanged after the probe."
+reviewed = "2026-09-07"
 source_verified = true
-runtime_verified = false
-build_verified = false
+runtime_verified = true
+build_verified = true
 tests_verified = false
-artifact_verified = false
+artifact_verified = true
 release_verified = false
 
 [verification.commands]
@@ -104,7 +105,7 @@ compiled_build = "build-red.cmd"
 expected_binary = "dist\\Aptlantis-Ops.exe"
 
 [features.native_shell]
-status = "implemented-in-source-unverified-at-runtime"
+status = "implemented-with-partial-native-runtime-smoke"
 capabilities = [
     "board-switching",
     "lane-navigation",
@@ -147,16 +148,17 @@ notes = "The supplied archive did not contain the documented src-tauri backend. 
 [agent]
 read_first = [
     "AGENTS.md",
-    "Ops Control Surface.manifest.toml",
+    "Ops-Surface-Red.toml",
     "Project-Proposal.md",
     "Project-README.md",
 ]
 authoritative_docs = [
-    "Ops Control Surface.manifest.toml",
+    "Ops-Surface-Red.toml",
     "Project-Proposal.md",
     "Project-README.md",
     "AGENTS.md",
     "README.md",
+    "docs\\GETTING-STARTED.md",
     "docs\\RED-ARCHITECTURE.md",
 ]
 safe_to_modify = true

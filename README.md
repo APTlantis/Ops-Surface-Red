@@ -6,6 +6,8 @@ It is designed around operational attention rather than conventional scheduling:
 
 > What deserves attention now, and what can I do about it from here?
 
+New operators should begin with [Getting Started with Ops Surface](docs/GETTING-STARTED.md). It explains the first migration save, project entry, type selection, payload syntax, relationships, and the common intake pitfalls.
+
 ## Why Red
 
 Red makes the interface, data model, and small operational behaviors part of one compact native program. The project no longer maintains parallel browser and desktop implementations or a Node/Rust build chain.
@@ -46,7 +48,9 @@ The expected output is `dist\Aptlantis-Ops.exe`.
 - Delete a record and its relationships without deleting filesystem content.
 - Persist objects and relationships in `data/ops-state.red`.
 
-Relationship creation is guided by the canonical vocabulary: `governs`, `implements`, `contains`, `depends-on`, `produces`, `produced-by`, `consumes`, `used-by`, `operates-on`, `executed-by`, `invokes`, `part-of`, `references`, `supersedes`, `derived-from`, and `validates`.
+State saves are schema-versioned and validated. The first save of a legacy two-block state creates `data/ops-state.red.v0.bak` before writing schema v1, giving the operator a direct rollback copy.
+
+Relationship creation is restricted to the canonical vocabulary: `governs`, `implements`, `contains`, `depends-on`, `produces`, `produced-by`, `consumes`, `used-by`, `operates-on`, `executed-by`, `invokes`, `part-of`, `references`, `supersedes`, `derived-from`, and `validates`.
 
 Type changes are transactional. Selecting a different type in the inspector immediately shows that type's default payload, but the stored object remains unchanged until Save. Saving a changed type replaces only the typed payload; shared envelope fields and relationships survive.
 
@@ -71,7 +75,7 @@ assets/project-icons/            retained project artwork
 legacy/tauri-scaffold/           superseded, non-authoritative frontend source
 AGENTS.md                        modification and verification rules
 Project-Proposal.md              authoritative scope
-Ops Control Surface.manifest.toml canonical machine-readable project metadata
+Ops-Surface-Red.toml             canonical machine-readable project metadata
 ```
 
 ## Safety rules

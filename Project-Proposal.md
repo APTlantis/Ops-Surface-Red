@@ -69,11 +69,11 @@ The superseded React/TypeScript/Vite/Tauri scaffold is retained only as historic
 - [x] The active source tree has no Node, React, Rust, Vite, Tauri, or SQLite runtime dependency.
 - [x] Typed objects and relationships have independent, inspectable representations.
 - [x] A native Red/View shell implements board/lane navigation, search, create, edit, move, pin, delete-record, persistence, and path-opening flows in source.
-- [ ] The shell launches successfully with the Windows Red/View interpreter.
+- [x] The shell launches successfully on the Windows Red/View runtime.
 - [ ] State survives a close-and-reopen smoke test.
 - [x] Every object type exposes a compact type-specific payload block in the inspector.
 - [ ] Typed payload validation, schema versioning, and migration backups are hardened.
-- [ ] Relationships can be created, inspected, and removed through the interface.
+- [x] Relationships can be created, inspected, and removed through the interface.
 - [ ] Managed artifacts can be copied, linked, and retained according to policy.
 - [ ] Operator execution shows command, working directory, elevation, mutation, and expected output before launch.
 - [ ] A compiled Windows executable passes the defined smoke suite.
@@ -104,10 +104,10 @@ The superseded React/TypeScript/Vite/Tauri scaffold is retained only as historic
 
 ## Roadmap
 
-1. Run and correct the native shell against the installed Windows Red/View toolchain.
-2. Verify CRUD, search, movement, deletion, persistence, and path launching.
-3. Harden the compact common record and typed payload blocks with schema versioning, validation, and migration backups.
-4. Add first-class relationship editing and impact queries.
+1. Run and correct the native shell against the installed Windows Red/View toolchain. Completed.
+2. Verify CRUD, search, movement, deletion, persistence, and path launching. In progress.
+3. Harden the compact common record and typed payload blocks with schema versioning, validation, and migration backups. Implemented; migration smoke remains.
+4. Add first-class relationship editing and impact queries. Relationship editing is implemented; impact queries remain.
 5. Add managed artifact intake and preserve-file deletion tests.
 6. Add bounded PowerShell operation previews and execution history.
 7. Compile and evaluate the Windows executable and distribution posture.

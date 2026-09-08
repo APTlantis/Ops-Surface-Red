@@ -32,11 +32,11 @@ The first native shell contains source-level implementations for:
 - transparent local persistence
 - Windows path launching
 
-Runtime verification is pending because this workspace does not contain the Windows Red/View toolchain. The project deliberately makes no build or release claim yet.
+The workspace includes `redc.exe`. The native source has compiled successfully to `dist\Aptlantis-Ops.exe`, and bounded launch checks have confirmed that the application process stays live while loading the current state. Full interactive persistence and release verification remain open.
 
 ## Persistence
 
-`data/ops-state.red` is the v0.1 system of record. It contains scalar values and nested Red blocks and is loaded as data rather than executed as code. Object records use a shared envelope plus a type-specific payload block; older shared-envelope-only records are normalized in memory when loaded.
+`data/ops-state.red` is the v0.1 system of record. It contains scalar values and nested Red blocks and is loaded as data rather than executed as code. Object records use a shared envelope plus a type-specific payload block; older shared-envelope-only records are normalized in memory when loaded. The next save writes a named schema-v1 state block after validating object records, typed payloads, unique IDs, and relationship endpoints. Migrating the legacy two-block state requires a successful one-time backup at `data/ops-state.red.v0.bak` before the original file is replaced.
 
 Record deletion removes the operational record and its relationship records. It never deletes a referenced filesystem target. Preserve the data file across source updates.
 
@@ -48,9 +48,8 @@ The surviving Tauri frontend was moved to `legacy/tauri-scaffold/`. It is exclud
 
 On the Windows host:
 
-1. Install or expose `red.exe` on `PATH`.
-2. Run `run-red.cmd`.
-3. Exercise create, edit, search, pin, board move, delete, and path-opening behavior.
-4. Close and reopen the app and confirm state persistence.
-5. Run `build-red.cmd` and launch `dist\Aptlantis-Ops.exe`.
-6. Record failures without promoting static inspection into runtime evidence.
+1. Run `run-red.cmd` or launch `dist\Aptlantis-Ops.exe`.
+2. Exercise create, edit, search, pin, board move, delete, relationship, and path-opening behavior.
+3. Save once and confirm `data/ops-state.red.v0.bak` preserves the pre-migration state.
+4. Close and reopen the app and confirm schema-v1 state persistence.
+5. Record failures without promoting partial smoke checks into release evidence.
